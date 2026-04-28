@@ -5,7 +5,10 @@ This document outlines the assumptions made during the development of the SSR Pe
 ### 1. Production Level vs. Demo
 **Assumption**: The application is treated as a **High-Fidelity Functional Demo**. 
 - Architecture (SSR, Middleware, Workers) is production-grade.
-- Features like Rate Limiting use in-memory stores (simulating Redis/External stores) for local demonstration portability.
+- **Rate Limiting Implementation**:
+  - **Limitation**: This implementation uses an in-memory store (`lib/rate-limit.ts`), which works correctly in a single-instance environment. However, in a serverless/edge deployment (e.g., Vercel), instances are stateless and not shared, which can lead to inconsistent rate limiting.
+  - **Production Alternative**: In production, this would be replaced with a distributed store such as Redis or Vercel KV to ensure consistent behavior across instances.
+  - **Why I chose this approach**: I intentionally implemented a custom in-memory rate limiter to demonstrate understanding of the algorithm and control over behavior, rather than relying on external libraries.
 
 ### 2. UI/UX Direction
 **Assumption**: A **Modern Dashboard Aesthetic** using Tailwind CSS.

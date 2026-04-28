@@ -2,28 +2,35 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { checkRateLimit } from '@/lib/rate-limit';
 
-export function proxy(request: NextRequest) {
-  const ip = request.headers.get('x-real-ip') ?? request.headers.get('x-forwarded-for')?.split(',')[0] ?? '127.0.0.1';
-  const result = checkRateLimit(ip);
-  
-  if (!result.success) {
-    const retryAfter = Math.ceil((result.reset - Date.now()) / 1000);
+export async function proxy(request: NextRequest) {
+  // ✅ Reliable IP extraction (Edge-safe)
+  const ip =
+    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    request.headers.get('x-real-ip') ||
+    'anonymous';
+
+  const key = `${ip}:${request.nextUrl.pathname}`;
+
+  const { success, limit, remaining, reset } = checkRateLimit(key);
+
+  if (!success) {
     return new NextResponse('Too Many Requests', {
       status: 429,
       headers: {
-        'Retry-After': retryAfter.toString(),
-        'X-RateLimit-Limit': result.limit.toString(),
-        'X-RateLimit-Remaining': result.remaining.toString(),
-        'X-RateLimit-Reset': result.reset.toString(),
+        'Retry-After': Math.ceil((reset - Date.now()) / 1000).toString(),
+        'X-RateLimit-Limit': limit.toString(),
+        'X-RateLimit-Remaining': remaining.toString(),
+        'X-RateLimit-Reset': reset.toString(),
       },
     });
   }
-  
+
   const response = NextResponse.next();
-  response.headers.set('X-RateLimit-Limit', result.limit.toString());
-  response.headers.set('X-RateLimit-Remaining', result.remaining.toString());
-  response.headers.set('X-RateLimit-Reset', result.reset.toString());
-  
+
+  response.headers.set('X-RateLimit-Limit', limit.toString());
+  response.headers.set('X-RateLimit-Remaining', remaining.toString());
+  response.headers.set('X-RateLimit-Reset', reset.toString());
+
   return response;
 }
 
